@@ -1,4 +1,8 @@
 import streamlit as st
+
+from datetime import date
+
+from src.graph import build_academic_graph
 from src.tools import create_study_plan, modify_study_plan
 
 
@@ -14,15 +18,15 @@ st.set_page_config(
 
 
 # ============================================================
-# LAZY LOAD LANGGRAPH
+# LOAD LANGGRAPH
 # ============================================================
 
 @st.cache_resource
 def get_graph():
-    # Import the heavy AI/RAG stack only when the
-    # Academic Assistant is actually used.
-    from src.graph import build_academic_graph
     return build_academic_graph()
+
+
+graph = None
 
 
 # ============================================================
@@ -40,7 +44,7 @@ if "current_plan" not in st.session_state:
 
 
 # ============================================================
-# HELPER — DISPLAY STUDY PLAN
+# HELPER FUNCTION — DISPLAY STUDY PLAN
 # ============================================================
 
 def display_study_plan(plan, title="📚 Your Study Plan"):
@@ -51,12 +55,13 @@ def display_study_plan(plan, title="📚 Your Study Plan"):
 
     st.subheader(title)
 
+    # General plan information
     exam_date = plan.get("exam_date")
     days_remaining = plan.get("days_remaining")
     hours_per_day = plan.get("hours_per_day")
     total_study_hours = plan.get("total_study_hours")
 
-    # Summary
+    # Summary cards
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
@@ -68,29 +73,24 @@ def display_study_plan(plan, title="📚 Your Study Plan"):
     with col2:
         st.metric(
             "⏳ Days Remaining",
-            str(days_remaining)
-            if days_remaining is not None
-            else "N/A"
+            str(days_remaining) if days_remaining is not None else "N/A"
         )
 
     with col3:
         st.metric(
             "⏱️ Hours / Day",
-            str(hours_per_day)
-            if hours_per_day is not None
-            else "N/A"
+            str(hours_per_day) if hours_per_day is not None else "N/A"
         )
 
     with col4:
         st.metric(
             "📖 Total Study Hours",
-            str(total_study_hours)
-            if total_study_hours is not None
-            else "N/A"
+            str(total_study_hours) if total_study_hours is not None else "N/A"
         )
 
     st.write("")
 
+    # Subject-wise plan
     subjects = plan.get("subjects", [])
 
     if subjects:
@@ -105,25 +105,23 @@ def display_study_plan(plan, title="📚 Your Study Plan"):
                 days = subject.get("days", 0)
                 total_hours = subject.get("total_hours", 0)
 
-                # Use simple Streamlit elements instead of
-                # bordered containers for maximum compatibility.
-                st.markdown(f"#### 📘 {name}")
+                with st.container(border=True):
 
-                col1, col2, col3 = st.columns(3)
+                    st.markdown(f"#### 📘 {name}")
 
-                with col1:
-                    st.write("⏱️ **Daily Study**")
-                    st.write(f"{subject_hours} hour(s)")
+                    col1, col2, col3 = st.columns(3)
 
-                with col2:
-                    st.write("📅 **Study Days**")
-                    st.write(f"{days} days")
+                    with col1:
+                        st.write("⏱️ **Daily Study**")
+                        st.write(f"{subject_hours} hour(s)")
 
-                with col3:
-                    st.write("📚 **Total Study**")
-                    st.write(f"{total_hours} hour(s)")
+                    with col2:
+                        st.write("📅 **Study Days**")
+                        st.write(f"{days} days")
 
-                st.divider()
+                    with col3:
+                        st.write("📚 **Total Study**")
+                        st.write(f"{total_hours} hour(s)")
 
             else:
                 st.write(subject)
@@ -155,7 +153,6 @@ with st.sidebar:
     st.markdown(
         """
         **The assistant can help with:**
-
         📚 Academic questions  
         🔎 College document search  
         📝 Document summarization  
@@ -166,7 +163,6 @@ with st.sidebar:
         🌦️ External information lookup
         """
     )
-
     st.divider()
 
     st.subheader("📚 Knowledge Base")
@@ -191,10 +187,6 @@ question = st.text_input(
     ),
 )
 
-
-# ============================================================
-# ASK ASSISTANT
-# ============================================================
 
 if st.button("🚀 Ask Assistant", type="primary"):
 
@@ -226,9 +218,7 @@ if st.button("🚀 Ask Assistant", type="primary"):
 
             result = graph.invoke(
                 {
-                    "question": question,
-                    "conversation_history": st.session_state.messages[:-1],
-                    "current_plan": st.session_state.current_plan,
+                    "question": question
                 },
                 config=config,
             )
@@ -251,10 +241,7 @@ if st.button("🚀 Ask Assistant", type="primary"):
                         for source in sources:
 
                             page = source.get("page")
-                            source_file = source.get(
-                                "source",
-                                "Unknown document"
-                            )
+                            source_file = source.get("source", "Unknown document")
 
                             if page is not None:
                                 st.markdown(
@@ -264,14 +251,14 @@ if st.button("🚀 Ask Assistant", type="primary"):
                                 st.markdown(
                                     f"**📄 {source_file}**"
                                 )
+                                
 
                             content = source.get(
                                 "content",
                                 ""
                             )
 
-                            if content:
-                                st.write(content[:500])
+                            st.write(content[:500])
 
                             st.divider()
 
@@ -354,7 +341,9 @@ st.write(
     "available study time, and exam date."
 )
 
+
 col1, col2 = st.columns(2)
+
 
 with col1:
 
@@ -374,11 +363,19 @@ with col1:
         step=0.5,
     )
 
+
 with col2:
 
-    exam_date = st.date_input(
-        "Exam date"
+    exam_date_text = st.text_input(
+        "Exam date (YYYY-MM-DD)",
+        value=str(date.today())
     )
+
+    try:
+        exam_date = date.fromisoformat(exam_date_text)
+    except ValueError:
+        st.error("Please enter the date in YYYY-MM-DD format.")
+        exam_date = date.today()
 
 
 # ============================================================
