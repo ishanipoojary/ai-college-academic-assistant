@@ -1,3 +1,7 @@
-import runpy
+import sys
+from pathlib import Path
 
-runpy.run_path("src/app.py", run_name="__main__")
+ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT))
+
+from src.app import *
