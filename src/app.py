@@ -24,7 +24,7 @@ def get_graph():
     return build_academic_graph()
 
 
-graph = get_graph()
+graph = None
 
 
 # ============================================================
@@ -205,6 +205,8 @@ if st.button("🚀 Ask Assistant", type="primary"):
             st.write(question)
 
         try:
+
+            graph = get_graph()
 
             config = {
                 "configurable": {
